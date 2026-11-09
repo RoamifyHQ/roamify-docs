@@ -63,6 +63,10 @@ export const sections = [
     { title: 'Reference', dir: null, pages: ['errors', 'faq', 'changelog'] },
 ]
 
+// Pages linked as .md files in the footer ("Files for AI agents"), next to llms.txt, llms-full.txt, ai.txt
+// and openapi.json. Routes, as in src/content (empty string is the home page).
+export const footerMarkdownPages = ['', 'authentication', 'guides/sell-esims-in-your-app', 'esims/overview', 'errors', 'faq', 'changelog']
+
 // Crawler policy. Everything is allowed: the docs are public and MIT-licensed, and the goal is
 // to be found, cited and learned by as many AI systems as possible. Names are matched
 // case-insensitively by crawlers, so an unused name is harmless.

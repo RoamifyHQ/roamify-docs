@@ -1,109 +1,120 @@
 'use client'
 
-import {useEffect, useId, useRef, useState} from 'react'
+import {useEffect, useRef, useState} from 'react'
+import {Button, Select} from 'nextra/components'
+import {useCopy} from 'nextra/hooks'
+import {ArrowRightIcon, ChatGPTIcon, ClaudeIcon, CopyIcon, LinkArrowIcon, MarkdownIcon} from 'nextra/icons'
+import type {FC, SVGProps} from 'react'
 
-type Props = {mdPath: string; mdUrl: string; title: string}
+// Same look as Nextra's built-in "Copy page" button (built from Nextra's own Button, Select and icons),
+// but it copies the clean generated markdown instead of the raw MDX source, and it adds "View as Markdown".
+// The built-in button is turned off with `copyPageButton={false}` on <Layout>.
 
-const itemClass =
-    'block w-full px-3 py-2 text-left text-sm hover:bg-gray-500/10 focus-visible:bg-gray-500/10 focus-visible:outline-none'
+type Props = {mdPath: string}
 
-// "Copy page" disclosure: copy the page as markdown, open the .md file, or hand the page to ChatGPT / Claude.
-// Plain disclosure semantics (button + aria-expanded + a list of links/buttons): every item is reachable
-// with Tab, Escape closes the panel and returns focus to the trigger.
-export function CopyPageMenu({mdPath, mdUrl, title}: Props) {
-    const [open, setOpen] = useState(false)
-    const [status, setStatus] = useState<'idle' | 'copied' | 'error'>('idle')
-    const root = useRef<HTMLDivElement>(null)
-    const trigger = useRef<HTMLButtonElement>(null)
-    const panelId = useId()
+const Item = ({icon: Icon, title, description, isExternal}: {
+    icon: FC<SVGProps<SVGSVGElement>>
+    title: string
+    description: string
+    isExternal?: boolean
+}) => (
+    <div className="x:flex x:gap-3 x:items-center">
+        <Icon width="16" />
+        <div className="x:flex x:flex-col">
+            <span className="x:font-medium x:flex x:gap-1">
+                {title}
+                {isExternal && <LinkArrowIcon height="1em" />}
+            </span>
+            <span className="x:text-xs">{description}</span>
+        </div>
+    </div>
+)
+
+const options = [
+    {id: 'copy', name: <Item icon={CopyIcon} title="Copy page" description="Copy page as Markdown for LLMs" />},
+    {id: 'markdown', name: <Item icon={MarkdownIcon} title="View as Markdown" description="Open this page as plain Markdown" isExternal />},
+    {id: 'chatgpt', name: <Item icon={ChatGPTIcon} title="Open in ChatGPT" description="Ask questions about this page" isExternal />},
+    {id: 'claude', name: <Item icon={ClaudeIcon} title="Open in Claude" description="Ask questions about this page" isExternal />},
+]
+
+export function CopyPageMenu({mdPath}: Props) {
+    const {copy, isCopied} = useCopy()
+    const [failed, setFailed] = useState(false)
+    const markdown = useRef<string | null>(null)
+
+    // Preload the markdown so the click handler can copy synchronously: Safari rejects clipboard writes
+    // that start after an await.
+    useEffect(() => {
+        let cancelled = false
+        fetch(`/${mdPath}`)
+            .then((response) => (response.ok ? response.text() : Promise.reject(new Error(String(response.status)))))
+            .then((text) => {
+                if (!cancelled) markdown.current = text
+            })
+            .catch(() => {})
+        return () => {
+            cancelled = true
+        }
+    }, [mdPath])
 
     useEffect(() => {
-        if (!open) return
-        const onClick = (e: MouseEvent) => {
-            if (!root.current?.contains(e.target as Node)) setOpen(false)
-        }
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key !== 'Escape') return
-            setOpen(false)
-            trigger.current?.focus()
-        }
-        document.addEventListener('mousedown', onClick)
-        document.addEventListener('keydown', onKey)
-        return () => {
-            document.removeEventListener('mousedown', onClick)
-            document.removeEventListener('keydown', onKey)
-        }
-    }, [open])
+        if (!failed) return
+        const timer = setTimeout(() => setFailed(false), 2000)
+        return () => clearTimeout(timer)
+    }, [failed])
 
-    async function copy() {
-        // Safari only allows clipboard writes started inside the click handler, so hand it a ClipboardItem
-        // whose data is a promise (the fetch) instead of awaiting the fetch first.
-        const markdown = fetch(`/${mdPath}`).then((response) => {
-            if (!response.ok) throw new Error(String(response.status))
-            return response.text()
-        })
+    async function handleCopy() {
+        setFailed(false)
         try {
-            if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
-                await navigator.clipboard.write([
-                    new ClipboardItem({'text/plain': markdown.then((text) => new Blob([text], {type: 'text/plain'}))}),
-                ])
-            } else {
-                await navigator.clipboard.writeText(await markdown)
+            if (markdown.current !== null) {
+                await copy(markdown.current)
+                return
             }
-            setStatus('copied')
+            const response = await fetch(`/${mdPath}`)
+            if (!response.ok) throw new Error(String(response.status))
+            await copy(await response.text())
         } catch {
-            setStatus('error')
+            setFailed(true)
         }
-        if (open) trigger.current?.focus()
-        setOpen(false)
-        setTimeout(() => setStatus('idle'), 2000)
     }
 
-    const prompt = encodeURIComponent(`Read ${mdUrl} so I can ask questions about "${title}" in the Roamify API docs.`)
+    function handleSelect(value: string) {
+        if (value === 'copy') return void handleCopy()
+        if (value === 'markdown') return void window.open(`/${mdPath}`, '_blank', 'noopener')
+        const markdownUrl = `${location.origin}/${mdPath}`
+        const url = value === 'chatgpt' ? 'chatgpt.com/?hints=search&prompt' : 'claude.ai/new?q'
+        window.open(`https://${url}=${encodeURIComponent(`Read from ${markdownUrl} so I can ask questions about it.`)}`, '_blank', 'noopener')
+    }
 
     return (
-        <div ref={root} className="relative inline-block text-sm not-prose">
-            {/* Persistent live region: announces the copy result without moving focus. */}
+        <div className="x:border x:inline-flex x:rounded-md x:items-stretch nextra-border x:float-end x:overflow-hidden">
+            {/* Persistent live region: announces the result without moving focus. */}
             <span role="status" aria-live="polite" className="sr-only">
-                {status === 'copied' ? 'Page copied as Markdown' : status === 'error' ? 'Copying the page failed' : ''}
+                {isCopied ? 'Page copied as Markdown' : failed ? 'Copying the page failed' : ''}
             </span>
-            <div className="inline-flex rounded-md border border-gray-500/30">
-                <button type="button" onClick={copy} className="rounded-l-md px-3 py-1.5 hover:bg-gray-500/10">
-                    {status === 'copied' ? 'Copied!' : status === 'error' ? 'Copy failed' : 'Copy page'}
-                </button>
-                <button
-                    ref={trigger}
-                    type="button"
-                    aria-label="More page actions"
-                    aria-expanded={open}
-                    aria-controls={panelId}
-                    onClick={() => setOpen((v) => !v)}
-                    className="rounded-r-md border-l border-gray-500/30 px-2 hover:bg-gray-500/10"
-                >
-                    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                        <path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                    </svg>
-                </button>
-            </div>
-            {open && (
-                <div
-                    id={panelId}
-                    className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-md border border-gray-500/30 bg-white shadow-lg [html.dark_&]:bg-neutral-900"
-                >
-                    <button type="button" onClick={copy} className={itemClass}>
-                        Copy page as Markdown
-                    </button>
-                    <a href={`/${mdPath}`} target="_blank" rel="noreferrer" className={itemClass}>
-                        View as Markdown
-                    </a>
-                    <a href={`https://chatgpt.com/?q=${prompt}`} target="_blank" rel="noreferrer" className={itemClass}>
-                        Open in ChatGPT
-                    </a>
-                    <a href={`https://claude.ai/new?q=${prompt}`} target="_blank" rel="noreferrer" className={itemClass}>
-                        Open in Claude
-                    </a>
-                </div>
-            )}
+            <Button
+                className={({hover}: {hover: boolean}) =>
+                    [
+                        'x:ps-2 x:pe-1 x:flex x:gap-2 x:text-sm x:font-medium x:items-center',
+                        (isCopied || failed) && 'x:opacity-70',
+                        hover && 'x:bg-gray-200 x:text-gray-900 x:dark:bg-primary-100/5 x:dark:text-gray-50',
+                    ]
+                        .filter(Boolean)
+                        .join(' ')
+                }
+                onClick={handleCopy}
+            >
+                <CopyIcon width="16" />
+                {isCopied ? 'Copied' : failed ? 'Copy failed' : 'Copy page'}
+            </Button>
+            <Select
+                anchor={{to: 'bottom end', gap: 10}}
+                className="x:rounded-none"
+                options={options}
+                value=""
+                selectedOption={<ArrowRightIcon width="12" className="x:rotate-90" />}
+                onChange={handleSelect}
+            />
         </div>
     )
 }

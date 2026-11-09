@@ -2,6 +2,7 @@
 // Fails if any docs page is missing from the generated AI files. Run after `npm run generate:ai`.
 import {existsSync, readdirSync, readFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
+import {footerMarkdownPages} from '../site.config.mjs'
 import {fileURLToPath} from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -27,6 +28,9 @@ walkContent('')
 const manifestRoutes = new Set(pages.map((p) => p.route))
 for (const route of sourceRoutes) {
     if (!manifestRoutes.has(route)) errors.push(`src/content/${route || 'index'}.mdx is not in the generated manifest`)
+}
+for (const route of footerMarkdownPages) {
+    if (!manifestRoutes.has(route)) errors.push(`footer links to ${route || 'index'}.md but no such page exists`)
 }
 for (const route of manifestRoutes) {
     if (!sourceRoutes.includes(route)) errors.push(`manifest lists ${route || '/'} but no .mdx source exists`)
