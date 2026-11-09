@@ -5,6 +5,7 @@ import React from "react";
 import '@/styles/globals.css'
 import {footerMarkdownPages, site} from '../../site.config.mjs'
 import manifest from '@/generated/ai-pages.json'
+import {WebMcpTools} from '@/components/WebMcpTools'
 
 export const metadata = {
     metadataBase: new URL('https://docs.getroamify.com'),
@@ -135,9 +136,10 @@ export default async function RootLayout({children}: { children: React.ReactNode
         >
         <Head
         >
-            {/* Your additional tags should be passed as `children` of `<Head>` element */}
+            <link rel="ai-catalog" type="application/json" href="/.well-known/ai-catalog.json"/>
         </Head>
         <body>
+        <WebMcpTools/>
         <Layout
             darkMode={true}
             banner={banner}

@@ -6,10 +6,12 @@
 //   public/ai.txt          AI usage policy
 //   public/robots.txt      crawler rules (all AI crawlers allowed)
 //   public/sitemap.xml     sitemap with honest lastmod dates
+//   public/.well-known/    api-catalog (RFC 9727), agent-skills/index.json + SKILL.md, ai-catalog.json (ARD)
 //   src/generated/ai-pages.json   manifest used by the proxy, page metadata and JSON-LD
 // Runs automatically before `dev` and `build`. Nothing it writes is committed.
 
 import {execFileSync} from 'node:child_process'
+import {createHash} from 'node:crypto'
 import {existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs'
 import {dirname, join, relative} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -409,6 +411,7 @@ const robots = [
     'Allow: /',
     '',
     `Sitemap: ${site.url}/sitemap.xml`,
+    `Agentmap: ${site.url}/.well-known/ai-catalog.json`,
     '',
 ].join('\n')
 write(join(PUBLIC, 'robots.txt'), robots)
@@ -423,6 +426,124 @@ const sitemap = [
     '',
 ].join('\n')
 write(join(PUBLIC, 'sitemap.xml'), sitemap)
+
+// ---------- agent discovery files (/.well-known) ----------
+
+const WELL_KNOWN = join(PUBLIC, '.well-known')
+const guidePages = pages.filter((p) => p.route.startsWith('guides/'))
+
+// RFC 9727 API catalog (application/linkset+json). Content-Type is set in next.config.mjs.
+const apiCatalog = {
+    linkset: [
+        {
+            anchor: site.environments.production,
+            ...(hasOpenApi ? {'service-desc': [{href: `${site.url}/openapi.json`, type: 'application/json'}]} : {}),
+            'service-doc': [{href: `${site.url}/`, type: 'text/html'}],
+            status: [{href: `${site.environments.production}/api/health`}],
+        },
+    ],
+}
+write(join(WELL_KNOWN, 'api-catalog'), `${JSON.stringify(apiCatalog, null, 2)}\n`)
+
+// One agent skill (agentskills.io SKILL.md) that points agents at the docs. It restates only facts that
+// are already in site.config.mjs and links to pages generated above.
+const SKILL_NAME = 'roamify-api'
+const skillMd = [
+    '---',
+    `name: ${SKILL_NAME}`,
+    'description: Integrate with the Roamify partner API to buy, activate and manage travel eSIMs, issue travel insurance, handle refunds and vouchers, receive webhooks and convert prices. Use when a task mentions Roamify, the Roamify API or eSIM reselling.',
+    '---',
+    '',
+    '# Roamify API',
+    '',
+    site.description,
+    '',
+    '## Read the docs, do not guess',
+    `- Index of every page: ${site.url}/llms.txt`,
+    `- All pages in one file: ${site.url}/llms-full.txt`,
+    `- Any page as markdown: add .md to its URL (for example ${site.url}/authentication.md) or send Accept: text/markdown`,
+    ...(hasOpenApi ? [`- OpenAPI 3.1 description: ${site.url}/openapi.json`] : []),
+    `- Usage policy for AI systems: ${site.url}/ai.txt`,
+    '',
+    '## Key facts',
+    ...keyFacts.map((f) => `- ${f}`),
+    '',
+    '## Where to start',
+    ...guidePages.map((p) => `- ${p.title}: ${p.mdUrl}`),
+    ...(byRoute.get('errors') ? [`- ${byRoute.get('errors').title}: ${byRoute.get('errors').mdUrl}`] : []),
+    '',
+    '## Rules',
+    '- Use only endpoints, parameters and fields that appear in the docs or the OpenAPI file. If something is not documented, say so.',
+    '- Start with the development environment and switch to production only when the user asks.',
+    '- Keep the access token in an environment variable or secret store. Never print it or commit it.',
+    `- For account or access questions, direct the user to ${site.partnerPortal} or ${site.contactEmail}.`,
+    '',
+].join('\n')
+write(join(WELL_KNOWN, `agent-skills/${SKILL_NAME}/SKILL.md`), skillMd)
+write(
+    join(WELL_KNOWN, 'agent-skills/index.json'),
+    `${JSON.stringify(
+        {
+            $schema: 'https://schemas.agentskills.io/discovery/0.2.0/schema.json',
+            skills: [
+                {
+                    name: SKILL_NAME,
+                    type: 'skill-md',
+                    description: 'How to integrate with the Roamify partner API (eSIMs, insurance, refunds, vouchers, webhooks, exchange rates) using the published docs and OpenAPI file.',
+                    url: `${site.url}/.well-known/agent-skills/${SKILL_NAME}/SKILL.md`,
+                    digest: `sha256:${createHash('sha256').update(skillMd).digest('hex')}`,
+                },
+            ],
+        },
+        null,
+        2,
+    )}\n`,
+)
+
+// ARD / ai-catalog manifest. Every entry has exactly one of `url` or `data`.
+const urn = (kind, name) => `urn:air:${new URL(site.url).hostname}:${kind}:${name}`
+const aiCatalog = {
+    specVersion: '1.0',
+    host: {displayName: site.organization.name, identifier: urn('host', 'roamify-docs')},
+    entries: [
+        ...(hasOpenApi
+            ? [{
+                identifier: urn('api', 'roamify-partner-api'),
+                displayName: 'Roamify partner API (OpenAPI 3.1)',
+                type: 'application/vnd.oai.openapi+json',
+                url: `${site.url}/openapi.json`,
+                representativeQueries: [
+                    'how do I buy an eSIM through an API',
+                    'list eSIM packages for a country with an API',
+                    'create a refund request for an eSIM via API',
+                ],
+            }]
+            : []),
+        {
+            identifier: urn('docs', 'llms-txt'),
+            displayName: 'Roamify API documentation index (llms.txt)',
+            type: 'text/plain',
+            url: `${site.url}/llms.txt`,
+            representativeQueries: [
+                'Roamify API documentation',
+                'how to authenticate with the Roamify API',
+                'how to verify Roamify webhook signatures',
+            ],
+        },
+        {
+            identifier: urn('skill', SKILL_NAME),
+            displayName: 'Roamify API skill',
+            type: 'text/markdown',
+            url: `${site.url}/.well-known/agent-skills/${SKILL_NAME}/SKILL.md`,
+            representativeQueries: [
+                'integrate an app with the Roamify eSIM API',
+                'sell travel eSIMs from my own app',
+                'handle Roamify API errors and retries',
+            ],
+        },
+    ],
+}
+write(join(WELL_KNOWN, 'ai-catalog.json'), `${JSON.stringify(aiCatalog, null, 2)}\n`)
 
 // ---------- manifest ----------
 
