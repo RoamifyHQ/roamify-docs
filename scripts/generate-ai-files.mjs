@@ -134,7 +134,10 @@ function mdxToMarkdown(source) {
                 if (!/^\s*<Tabs\.Tab\b[^>]*>\s*$/.test(lines[i])) continue
                 const body = []
                 for (i++; i < lines.length && !/^\s*<\/Tabs\.Tab>\s*$/.test(lines[i]); i++) body.push(lines[i])
-                out.push('', `**${labels[tabIndex] ?? `Option ${tabIndex + 1}`}**`, '', ...stripIndent(body))
+                // Some examples indent code less than their fences; a fence indented 4+ spaces would be read as
+                // indented code, so put the fence delimiters at column 0 regardless of the body indentation.
+                const tabLines = stripIndent(body).map((l) => (/^\s*```/.test(l) ? l.trimStart() : l))
+                out.push('', `**${labels[tabIndex] ?? `Option ${tabIndex + 1}`}**`, '', ...tabLines)
                 tabIndex++
             }
             out.push('')
@@ -146,7 +149,9 @@ function mdxToMarkdown(source) {
     return dropTableOfContents(out.join('\n')).replace(/\n{3,}/g, '\n\n').trim()
 }
 
-// The in-page "Table of Contents" lists only link to anchors; they cost tokens and add nothing.
+// The in-page "Table of Contents" list only links to anchors; it costs tokens and adds nothing.
+// Only the list itself is dropped: anything else between it and the next heading (for example a
+// warning callout) is content and is kept.
 function dropTableOfContents(md) {
     const lines = md.split('\n')
     const out = []
@@ -156,8 +161,12 @@ function dropTableOfContents(md) {
             skipping = true
             continue
         }
-        if (skipping && /^#{1,6}\s/.test(line)) skipping = false
-        if (!skipping) out.push(line)
+        if (skipping) {
+            const isListEntry = /^\s*([-*+]|\d+\.)\s/.test(line)
+            if (isListEntry || !line.trim()) continue
+            skipping = false
+        }
+        out.push(line)
     }
     return out.join('\n')
 }

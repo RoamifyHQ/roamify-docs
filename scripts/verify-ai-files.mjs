@@ -18,7 +18,10 @@ for (const p of pages) {
     if (!llms.includes(`(${p.mdUrl})`)) errors.push(`llms.txt does not list ${p.mdUrl}`)
     if (!full.includes(`<!-- source: ${p.url} -->`)) errors.push(`llms-full.txt does not include ${p.url}`)
     if (!sitemap.includes(`<loc>${p.url}</loc>`)) errors.push(`sitemap.xml does not list ${p.url}`)
-    const prose = read(`public/${p.mdPath}`).replace(/^\s*```[\s\S]*?^\s*```/gm, '')
+    const raw = read(`public/${p.mdPath}`)
+    // A fence indented 4+ spaces at the top level renders as indented code, not a fenced block.
+    if (/^( {4,}|\t)```/m.test(raw.replace(/^[-*+\d.]+ .*(\n( {2,}.*|))*$/gm, ''))) errors.push(`${p.mdPath} has an indented code fence`)
+    const prose = raw.replace(/^\s*```[\s\S]*?^\s*```/gm, '')
     if (/<(Callout|Tabs|Image)\b|^import /m.test(prose)) errors.push(`${p.mdPath} still contains JSX or imports`)
 }
 const openapiPath = join(ROOT, 'public/openapi.json')

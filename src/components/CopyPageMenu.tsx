@@ -63,6 +63,10 @@ export function CopyPageMenu({mdPath, mdUrl, title}: Props) {
 
     return (
         <div ref={root} className="relative inline-block text-sm not-prose">
+            {/* Persistent live region: announces the copy result without moving focus. */}
+            <span role="status" aria-live="polite" className="sr-only">
+                {status === 'copied' ? 'Page copied as Markdown' : status === 'error' ? 'Copying the page failed' : ''}
+            </span>
             <div className="inline-flex rounded-md border border-gray-500/30">
                 <button type="button" onClick={copy} className="rounded-l-md px-3 py-1.5 hover:bg-gray-500/10">
                     {status === 'copied' ? 'Copied!' : status === 'error' ? 'Copy failed' : 'Copy page'}
