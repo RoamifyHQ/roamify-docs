@@ -3,7 +3,11 @@
   "version": "0.0.1",
   "description": "Roamify API Documentation",
   "scripts": {
+    "generate:ai": "node scripts/generate-ai-files.mjs",
+    "verify:ai": "node scripts/verify-ai-files.mjs",
+    "predev": "npm run generate:ai",
     "dev": "next dev",
+    "prebuild": "npm run generate:ai",
     "build": "next build",
     "start": "next start",
     "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind"

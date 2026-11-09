@@ -8,6 +8,7 @@ export default {
     "exchange-rates": "Exchange Rates",
     "health": "Health Check",
     "about": "About eSIM API",
+    "faq": "FAQ",
     "contact": {
         title: "Contact",
         type: "page",
