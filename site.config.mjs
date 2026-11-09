@@ -123,3 +123,15 @@ export const aiCrawlers = {
         'Crawl4AI',
     ],
 }
+
+// Link response header values advertised on every HTML page and every markdown response (RFC 8288).
+// Shared by next.config.mjs and src/proxy.ts so they cannot drift apart.
+export function discoveryLinkHeader({ openapi }) {
+    return [
+        ...['/llms.txt', '/llms-full.txt', '/ai.txt'].map((path) => `<${path}>; rel="describedby"; type="text/plain"`),
+        '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
+        '</.well-known/ai-catalog.json>; rel="ai-catalog"; type="application/json"',
+        '</>; rel="service-doc"; type="text/html"',
+        ...(openapi ? ['</openapi.json>; rel="service-desc"; type="application/json"'] : []),
+    ].join(', ')
+}

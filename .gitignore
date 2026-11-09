@@ -11,3 +11,4 @@ _pagefind/
 /public/index.md
 /public/**/*.md
 /src/generated/
+/public/.well-known/
