@@ -2,6 +2,7 @@ import { generateStaticParamsFor, importPage } from 'nextra/pages'
 import { useMDXComponents } from 'nextra-theme-docs'
 import manifest from '@/generated/ai-pages.json'
 import { site } from '../../../site.config.mjs'
+import { CopyPageMenu } from '@/components/CopyPageMenu'
 
 export const generateStaticParams = generateStaticParamsFor('mdxPath')
 
@@ -109,6 +110,11 @@ export default async function Page(props: any) {
                     type="application/ld+json"
                     dangerouslySetInnerHTML={{ __html: structuredData(page) }}
                 />
+            )}
+            {page && (
+                <div className="mt-4 flex justify-end">
+                    <CopyPageMenu mdPath={page.mdPath} mdUrl={page.mdUrl} title={page.title} />
+                </div>
             )}
             <MDXContent {...props} params={params} />
         </Wrapper>

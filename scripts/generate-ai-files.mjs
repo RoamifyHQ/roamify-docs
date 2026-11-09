@@ -58,10 +58,14 @@ async function walk(dir, route = [], parents = []) {
 
 // ---------- MDX -> markdown ----------
 
+// MDX files mix tabs and spaces (e.g. esims/countries.mdx), so expand leading tabs before measuring indentation.
+const expandTabs = (l) => l.replace(/^[ \t]+/, (ws) => ws.replace(/\t/g, '    '))
+
 const stripIndent = (lines) => {
-    const indents = lines.filter((l) => l.trim()).map((l) => l.match(/^ */)[0].length)
+    const expanded = lines.map(expandTabs)
+    const indents = expanded.filter((l) => l.trim()).map((l) => l.match(/^ */)[0].length)
     const min = indents.length ? Math.min(...indents) : 0
-    return lines.map((l) => l.slice(min))
+    return expanded.map((l) => l.slice(min))
 }
 
 const absoluteUrl = (path) => {
