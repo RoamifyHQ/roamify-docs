@@ -101,10 +101,10 @@ const Wrapper = useMDXComponents().wrapper
 export default async function Page(props: any) {
     const params = await props.params
     const result = await importPage(params.mdxPath)
-    const { default: MDXContent, toc, metadata } = result
+    const { default: MDXContent, toc, metadata, sourceCode } = result
     const page = aiPages.get(routeOf(params.mdxPath))
     return (
-        <Wrapper toc={toc} metadata={metadata}>
+        <Wrapper toc={toc} metadata={metadata} sourceCode={sourceCode}>
             {page && (
                 <script
                     type="application/ld+json"

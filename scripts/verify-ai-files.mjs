@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Fails if any docs page is missing from the generated AI files. Run after `npm run generate:ai`.
-import {existsSync, readFileSync} from 'node:fs'
+import {existsSync, readdirSync, readFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
@@ -12,6 +12,25 @@ const full = read('public/llms-full.txt')
 const sitemap = read('public/sitemap.xml')
 const robots = read('public/robots.txt')
 const errors = []
+
+// Independent of the manifest: walk src/content for every .mdx file, so a page the generator failed to
+// pick up cannot pass just because it is missing from the manifest too.
+const sourceRoutes = []
+const walkContent = (dir, prefix = '') => {
+    for (const entry of readdirSync(join(ROOT, 'src/content', dir), {withFileTypes: true})) {
+        const rel = join(dir, entry.name)
+        if (entry.isDirectory()) walkContent(rel, `${prefix}${entry.name}/`)
+        else if (entry.name.endsWith('.mdx')) sourceRoutes.push(rel.replace(/\.mdx$/, '').replace(/(^|\/)index$/, ''))
+    }
+}
+walkContent('')
+const manifestRoutes = new Set(pages.map((p) => p.route))
+for (const route of sourceRoutes) {
+    if (!manifestRoutes.has(route)) errors.push(`src/content/${route || 'index'}.mdx is not in the generated manifest`)
+}
+for (const route of manifestRoutes) {
+    if (!sourceRoutes.includes(route)) errors.push(`manifest lists ${route || '/'} but no .mdx source exists`)
+}
 
 for (const p of pages) {
     if (!existsSync(join(ROOT, 'public', p.mdPath))) errors.push(`missing public/${p.mdPath}`)
