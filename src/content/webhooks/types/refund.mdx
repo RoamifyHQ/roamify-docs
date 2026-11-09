@@ -1,0 +1,124 @@
+import {Callout} from 'nextra/components';
+
+# Refund Event
+
+## Table of Contents
+- [Refund Event](#refund-event)
+- [Overview](#overview)
+- [Event Payload](#event-payload)
+- [Example Payloads](#example-payloads)
+- [Handling Duplicates](#handling-duplicates)
+
+<Callout type="warning" emoji="⚠️">
+    Before you start using the refund event webhook, you need to configure your webhook URL in the Roamify dashboard. This URL will be used to receive notifications about your [refund requests](/esims/refunds).
+</Callout>
+
+## Overview
+The Refund Event webhook tells you when Roamify support has decided one of your refund requests, so you do not need to poll [`GET /api/refund`](/esims/refunds#get-a-refund-request).
+
+The `event_type` for these events will be either:
+- `refunded`: the request was approved and the refund is complete.
+- `rejected`: the request was rejected. `rejection_reason` tells you why.
+
+No event is sent when a request is created, approved for processing or cancelled.
+
+## Event Payload
+The webhook payload contains the following fields:
+
+- `event_id`: A stable identifier of this event, in the form `rfd_{refund_id}_{event_type}`. It is the same every time the same event is delivered.
+- `event_category`: The category of event. For refund events, this will be `refund`.
+- `event_type`: `refunded` or `rejected`.
+- `data`: The data object containing the refund request, which includes:
+    - `timestamp`: The time when the event was sent, in unix timestamp format (seconds since epoch).
+    - `refund_id`: The ID of the refund request.
+    - `status`: The status of the request: `REFUNDED` or `REJECTED`.
+    - `product_type`: The refunded product. Always `esim` for now.
+    - `esim_id`: The unique identifier of the eSIM.
+    - `iccid`: The ICCID of the eSIM, or an empty string if the eSIM was never redeemed.
+    - `reference_id`: The `referenceId` of the order, or an empty string.
+    - `order_id`: The ID of the order the eSIM belongs to.
+    - `reason`: The [reason](/esims/refunds#refund-reasons) you gave.
+    - `amount`: The amount refunded, in `currency`. `null` for `rejected`.
+    - `currency`: The currency of `amount`. `null` for `rejected`.
+    - `balance_credit_usd`: The amount credited to your balance in USD, when the order was paid with your balance. Otherwise `null`.
+    - `transaction_id`: The ID of the refund of the payment. `null` for `rejected`.
+    - `payment_method`: How the order was paid, in lowercase. `null` for `rejected`.
+    - `rejection_reason`: Why support rejected the request, for `rejected` only. Otherwise `null`.
+    - `rejection_note`: Support's explanation, for `rejected` only, when given. Otherwise `null`.
+    - `requested_at`: When the request was created, in unix timestamp format.
+    - `processed_at`: When the request was decided, in unix timestamp format, or `null`.
+
+## Example Payloads
+A refunded request:
+
+```json
+{
+  "event_id": "rfd_9f3c1c0e-6a52-4b8e-9d0a-0d3f1e2a7c11_refunded",
+  "event_type": "refunded",
+  "event_category": "refund",
+  "data": {
+      "timestamp": 1762571000,
+      "refund_id": "9f3c1c0e-6a52-4b8e-9d0a-0d3f1e2a7c11",
+      "status": "REFUNDED",
+      "product_type": "esim",
+      "esim_id": "74b73655-0fa7-49e4-bab6-eb80b5522104",
+      "iccid": "8935303411619613",
+      "reference_id": "ref_1234567890",
+      "order_id": "ee9357c2-0000-0000-0000-000000000000",
+      "reason": "UNABLE_TO_INSTALL",
+      "amount": 1.39,
+      "currency": "USD",
+      "balance_credit_usd": 1.39,
+      "transaction_id": "rf_0000000000",
+      "payment_method": "balance",
+      "rejection_reason": null,
+      "rejection_note": null,
+      "requested_at": 1762570000,
+      "processed_at": 1762570990
+  }
+}
+```
+
+A rejected request:
+
+```json
+{
+  "event_id": "rfd_2b1d7e40-0000-0000-0000-000000000000_rejected",
+  "event_type": "rejected",
+  "event_category": "refund",
+  "data": {
+      "timestamp": 1762571000,
+      "refund_id": "2b1d7e40-0000-0000-0000-000000000000",
+      "status": "REJECTED",
+      "product_type": "esim",
+      "esim_id": "c2a9cdae-430e-4251-bf65-a84df4562ed9",
+      "iccid": "8991234567890123456",
+      "reference_id": "",
+      "order_id": "ee9357c2-0000-0000-0000-000000000000",
+      "reason": "CUSTOMER_REQUEST",
+      "amount": null,
+      "currency": null,
+      "balance_credit_usd": null,
+      "transaction_id": null,
+      "payment_method": null,
+      "rejection_reason": "DATA_USED",
+      "rejection_note": null,
+      "requested_at": 1762570000,
+      "processed_at": 1762570990
+  }
+}
+```
+
+## Handling Duplicates
+A delivery can be repeated, for example when Roamify support resends it or after a crash is recovered. Use `event_id` to drop an event you have already processed.
+
+## Mandatory Response
+You must respond with a 200 OK status code to acknowledge receipt of the webhook. We recommend responding quickly (within 3 seconds) and processing the data in the background.
+
+### Response Example
+```json
+{
+  "code": 200,
+  "status": "success"
+}
+```

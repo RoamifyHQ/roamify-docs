@@ -8,6 +8,7 @@ Currently, it supports the following features:
 - **eSIM Status**: Receive notifications when an eSIM's status changes (activated, deactivated, suspended, etc.)
 - **Partner Balance**: Receive notifications about changes in your partner account balance
 - **Affiliate Orders**: Receive notifications when orders are placed through your affiliate links
+- **Refunds**: Receive notifications when a refund request is refunded or rejected
 - **More Features**: We are constantly working on adding more features to Roamify Webhooks.
 
 ## Table of Contents
@@ -141,9 +142,11 @@ graph TD;
         K[Process eSIM Events]
         L[Process Partner Events]
         M[Process Affiliate Events]
+        Q[Process Refund Events]
         N[eSIM Usage/Status]
         O[Low/Insufficient Balance<br/>Top-up]
         P[Affiliate Order]
+        R[Refunded/Rejected]
     end
     A --> B;
     B --> C;
@@ -157,7 +160,9 @@ graph TD;
     J -->|esim| K;
     J -->|partner| L;
     J -->|affiliate| M;
+    J -->|refund| Q;
     K --> N;
     L --> O;
     M --> P;
+    Q --> R;
 ```

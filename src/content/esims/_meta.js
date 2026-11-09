@@ -7,6 +7,7 @@ export default {
     "esims": "eSIMs",
     "esims-link": "eSIM Link",
     "vouchers": "Vouchers",
+    "refunds": "Refunds",
     "events": "eSIM Events",
     "compatible-devices": "Compatible Devices",
     "balance": "Balance",
