@@ -3,11 +3,13 @@ import {existsSync, readFileSync} from 'node:fs'
 
 // Written by scripts/generate-ai-files.mjs (runs before dev and build).
 const manifestUrl = new URL('./src/generated/ai-pages.json', import.meta.url)
-const aiPages = existsSync(manifestUrl) ? JSON.parse(readFileSync(manifestUrl, 'utf8')).pages : []
+const manifest = existsSync(manifestUrl) ? JSON.parse(readFileSync(manifestUrl, 'utf8')) : {pages: []}
+const aiPages = manifest.pages
 
-const describedBy = ['/llms.txt', '/llms-full.txt', '/ai.txt']
-    .map((path) => `<${path}>; rel="describedby"; type="text/plain"`)
-    .join(', ')
+const describedBy = [
+    ...['/llms.txt', '/llms-full.txt', '/ai.txt'].map((path) => `<${path}>; rel="describedby"; type="text/plain"`),
+    ...(manifest.openapi ? ['</openapi.json>; rel="service-desc"; type="application/json"'] : []),
+].join(', ')
 
 const cors = {key: 'Access-Control-Allow-Origin', value: '*'}
 
@@ -62,6 +64,16 @@ const nextConfig = {
                     cors,
                 ],
             })),
+            ...(manifest.openapi
+                ? [{
+                    source: '/openapi.json',
+                    headers: [
+                        {key: 'Content-Type', value: 'application/json; charset=utf-8'},
+                        {key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=86400'},
+                        cors,
+                    ],
+                }]
+                : []),
             {
                 source: '/:file(llms\\.txt|llms-full\\.txt|ai\\.txt)',
                 headers: [

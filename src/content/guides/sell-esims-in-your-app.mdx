@@ -1,0 +1,64 @@
+---
+description: "Step-by-step guide to selling travel eSIMs from your own app with the Roamify API: authenticate, find a package, place an order, generate the eSIM profile, share the install link and track usage."
+---
+
+import { Callout } from 'nextra/components';
+
+# How to sell eSIMs in your app
+
+This guide walks through the shortest path from an API key to an eSIM your customer can install. It uses the same endpoints as the reference pages; follow the links for every field and response.
+
+## Table of Contents
+- [Before you start](#before-you-start)
+- [1. Find the package](#1-find-the-package)
+- [2. Place the order](#2-place-the-order)
+- [3. Generate the eSIM profile](#3-generate-the-esim-profile)
+- [4. Give the customer the eSIM](#4-give-the-customer-the-esim)
+- [5. Track usage and top up](#5-track-usage-and-top-up)
+- [6. Listen for events](#6-listen-for-events)
+
+## Before you start
+1. Sign up at the [Roamify Partner Portal](https://partner.getroamify.com/sign-up) and copy your Access Token (called an API Key in the portal).
+2. Build against the development environment, `https://api-dev.getroamify.com`, and switch to `https://api.getroamify.com` for production.
+3. Send `Authorization: Bearer <token>` on every request. See [Authentication](/authentication).
+
+## 1. Find the package
+Roamify eSIM covers 200+ countries. Call [`GET /api/esim/countries`](/esims/countries) first, then use the returned `name` as `country` or the returned `code` as `countryCode` when you query [`GET /api/esim/packages`](/esims/packages).
+
+Packages are paginated. Pass `page` and `pageSize` and iterate when you need the full catalog. You can also filter by `geography`, `days`, `gbs` and `isUnlimited`. Keep the `packageId` of the package your customer picks.
+
+To show prices in a customer's currency, use the [exchange rates API](/exchange-rates/overview).
+
+## 2. Place the order
+There are two ways to order. Both take an `items` array of `{ packageId, quantity }` and an optional `referenceId` of your own.
+
+| | Order, then apply | Instant order |
+| --- | --- | --- |
+| Endpoint | `POST /api/esim/order`, then `POST /api/esim/apply` | `POST /api/esim/order/instant` |
+| Steps | Two calls | One call, no `/apply` needed |
+| Notes | Gives you the `esimId` of each eSIM to apply when you are ready | Set a timeout of at least 60 seconds, because fulfilment time varies with what you order |
+
+<Callout type="info">
+    Send a `referenceId` so you can find the order again with `GET /api/esim/order`, which accepts `orderId` or `referenceId`. See [Orders](/esims/orders).
+</Callout>
+
+Keep an eye on your account funds with [`GET /api/balance`](/esims/balance), or subscribe to [partner balance webhooks](/webhooks/types/partner-balance).
+
+## 3. Generate the eSIM profile
+If you used `POST /api/esim/order`, call [`POST /api/esim/apply`](/esims/esims#generate-esim-profile) with the `esimId` from the order items. If the package requires a travel date, send `startDate` in ISO 8601 format. The response contains the eSIM profile. Skip this step if you used the instant order.
+
+## 4. Give the customer the eSIM
+Generate a branded installation link with [`POST /api/esim/link`](/esims/esims-link) and send it to your customer. The response includes an access code and a ready-made WhatsApp share URL. To check which phones support eSIM, use [`GET /api/compatible-devices`](/esims/compatible-devices).
+
+## 5. Track usage and top up
+Read data usage with `GET /api/esim/usage?iccid=...`, and a daily breakdown with `GET /api/esim/usage/details`. When the customer needs more data, follow the [top-up flow](/esims/topup-flow). Top-up works only for eSIMs that support it (`withTopUp = true`).
+
+## 6. Listen for events
+Instead of polling, register a webhook URL in the Roamify dashboard. Roamify sends signed events for [eSIM status](/webhooks/types/esim-status), [eSIM usage](/webhooks/types/esim-usage), [partner balance](/webhooks/types/partner-balance), [affiliate orders](/webhooks/types/affiliate-orders) and [refunds](/webhooks/types/refund).
+
+Verify every request with the `X-Roamify-Signature` header (HMAC-SHA256) and answer `200 OK` within 3 seconds. See [Webhook verification](/webhooks/verification).
+
+## If something goes wrong
+- Look the status and message up in [API Errors](/errors).
+- If a customer cannot use the eSIM, you can file a [refund request](/esims/refunds). Roamify support reviews it and the refund happens only after approval.
+- Questions? Email [support@getroamify.com](mailto:support@getroamify.com) or see the [FAQ](/faq).

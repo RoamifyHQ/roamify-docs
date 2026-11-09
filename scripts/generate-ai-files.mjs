@@ -20,6 +20,8 @@ const CONTENT = join(ROOT, 'src/content')
 const PUBLIC = join(ROOT, 'public')
 const MANIFEST = join(ROOT, 'src/generated/ai-pages.json')
 const FULL_LIMIT = 500_000
+// public/openapi.json is hand-maintained (not generated); advertise it only when it exists.
+const hasOpenApi = existsSync(join(PUBLIC, 'openapi.json'))
 
 // ---------- reading the content tree ----------
 
@@ -315,6 +317,7 @@ const llms = [
     ...(uncovered.length ? ['## More', ...uncovered.map(line), ''] : []),
     '## Machine-readable',
     `- [Full documentation](${site.url}/llms-full.txt): every page above concatenated in one file`,
+    ...(hasOpenApi ? [`- [OpenAPI description](${site.url}/openapi.json): OpenAPI 3.1 description of every endpoint and webhook event`] : []),
     `- [Sitemap](${site.url}/sitemap.xml): all HTML pages`,
     `- [AI usage policy](${site.url}/ai.txt): how AI systems may use this content`,
     `- Any page is also available as markdown: add .md to its URL, or send Accept: text/markdown`,
@@ -373,6 +376,7 @@ const ai = [
     `llms: ${site.url}/llms.txt`,
     `llms-full: ${site.url}/llms-full.txt`,
     `markdown: add .md to any page URL, or request it with Accept: text/markdown`,
+    ...(hasOpenApi ? [`openapi: ${site.url}/openapi.json`] : []),
     `sitemap: ${site.url}/sitemap.xml`,
     '',
     '[contact]',
@@ -416,7 +420,7 @@ write(join(PUBLIC, 'sitemap.xml'), sitemap)
 write(
     MANIFEST,
     JSON.stringify(
-        {pages: pages.map(({markdown, ...rest}) => rest)},
+        {openapi: hasOpenApi, pages: pages.map(({markdown, ...rest}) => rest)},
         null,
         2,
     ) + '\n',

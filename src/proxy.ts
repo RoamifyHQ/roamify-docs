@@ -7,9 +7,10 @@ import manifest from '@/generated/ai-pages.json'
 
 const pages = new Map(manifest.pages.map((p) => [p.route, p]))
 
-const describedBy = ['/llms.txt', '/llms-full.txt', '/ai.txt']
-    .map((path) => `<${path}>; rel="describedby"; type="text/plain"`)
-    .join(', ')
+const describedBy = [
+    ...['/llms.txt', '/llms-full.txt', '/ai.txt'].map((path) => `<${path}>; rel="describedby"; type="text/plain"`),
+    ...(manifest.openapi ? ['</openapi.json>; rel="service-desc"; type="application/json"'] : []),
+].join(', ')
 
 type Range = {type: string; q: number}
 
@@ -39,7 +40,8 @@ function prefersMarkdown(accept: string | null): boolean {
     const ranges = parseAccept(accept)
     const markdown = Math.max(0, ...ranges.filter((r) => r.type === 'text/markdown').map((r) => r.q))
     if (markdown <= 0) return false
-    const html = Math.max(qualityFor(ranges, 'text/html'), qualityFor(ranges, 'application/xhtml+xml'))
+    // The page is served as text/html, so that is the only HTML representation to compare against.
+    const html = qualityFor(ranges, 'text/html')
     return markdown > html
 }
 

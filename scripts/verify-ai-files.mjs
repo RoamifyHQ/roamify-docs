@@ -21,6 +21,16 @@ for (const p of pages) {
     const prose = read(`public/${p.mdPath}`).replace(/^\s*```[\s\S]*?^\s*```/gm, '')
     if (/<(Callout|Tabs|Image)\b|^import /m.test(prose)) errors.push(`${p.mdPath} still contains JSX or imports`)
 }
+const openapiPath = join(ROOT, 'public/openapi.json')
+if (existsSync(openapiPath)) {
+    try {
+        const spec = JSON.parse(readFileSync(openapiPath, 'utf8'))
+        if (!/^3\./.test(spec.openapi) || !Object.keys(spec.paths ?? {}).length) errors.push('openapi.json is not a valid OpenAPI 3 document')
+    } catch (e) {
+        errors.push(`openapi.json is not valid JSON: ${e.message}`)
+    }
+    if (!llms.includes('/openapi.json')) errors.push('llms.txt does not link /openapi.json')
+}
 if (sitemap.includes('.md<')) errors.push('sitemap.xml lists a .md URL')
 if (!/Sitemap:/.test(robots) || /Disallow:\s*\//.test(robots)) errors.push('robots.txt must have a Sitemap line and must not disallow /')
 

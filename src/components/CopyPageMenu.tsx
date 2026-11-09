@@ -1,24 +1,32 @@
 'use client'
 
-import {useEffect, useRef, useState} from 'react'
+import {useEffect, useId, useRef, useState} from 'react'
 
 type Props = {mdPath: string; mdUrl: string; title: string}
 
 const itemClass =
     'block w-full px-3 py-2 text-left text-sm hover:bg-gray-500/10 focus-visible:bg-gray-500/10 focus-visible:outline-none'
 
-// "Copy page" menu: copy the page as markdown, open the .md file, or hand the page to ChatGPT / Claude.
+// "Copy page" disclosure: copy the page as markdown, open the .md file, or hand the page to ChatGPT / Claude.
+// Plain disclosure semantics (button + aria-expanded + a list of links/buttons): every item is reachable
+// with Tab, Escape closes the panel and returns focus to the trigger.
 export function CopyPageMenu({mdPath, mdUrl, title}: Props) {
     const [open, setOpen] = useState(false)
     const [status, setStatus] = useState<'idle' | 'copied' | 'error'>('idle')
     const root = useRef<HTMLDivElement>(null)
+    const trigger = useRef<HTMLButtonElement>(null)
+    const panelId = useId()
 
     useEffect(() => {
         if (!open) return
         const onClick = (e: MouseEvent) => {
             if (!root.current?.contains(e.target as Node)) setOpen(false)
         }
-        const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return
+            setOpen(false)
+            trigger.current?.focus()
+        }
         document.addEventListener('mousedown', onClick)
         document.addEventListener('keydown', onKey)
         return () => {
@@ -28,14 +36,25 @@ export function CopyPageMenu({mdPath, mdUrl, title}: Props) {
     }, [open])
 
     async function copy() {
-        try {
-            const response = await fetch(`/${mdPath}`)
+        // Safari only allows clipboard writes started inside the click handler, so hand it a ClipboardItem
+        // whose data is a promise (the fetch) instead of awaiting the fetch first.
+        const markdown = fetch(`/${mdPath}`).then((response) => {
             if (!response.ok) throw new Error(String(response.status))
-            await navigator.clipboard.writeText(await response.text())
+            return response.text()
+        })
+        try {
+            if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+                await navigator.clipboard.write([
+                    new ClipboardItem({'text/plain': markdown.then((text) => new Blob([text], {type: 'text/plain'}))}),
+                ])
+            } else {
+                await navigator.clipboard.writeText(await markdown)
+            }
             setStatus('copied')
         } catch {
             setStatus('error')
         }
+        if (open) trigger.current?.focus()
         setOpen(false)
         setTimeout(() => setStatus('idle'), 2000)
     }
@@ -49,10 +68,11 @@ export function CopyPageMenu({mdPath, mdUrl, title}: Props) {
                     {status === 'copied' ? 'Copied!' : status === 'error' ? 'Copy failed' : 'Copy page'}
                 </button>
                 <button
+                    ref={trigger}
                     type="button"
                     aria-label="More page actions"
-                    aria-haspopup="menu"
                     aria-expanded={open}
+                    aria-controls={panelId}
                     onClick={() => setOpen((v) => !v)}
                     className="rounded-r-md border-l border-gray-500/30 px-2 hover:bg-gray-500/10"
                 >
@@ -63,19 +83,19 @@ export function CopyPageMenu({mdPath, mdUrl, title}: Props) {
             </div>
             {open && (
                 <div
-                    role="menu"
+                    id={panelId}
                     className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-md border border-gray-500/30 bg-white shadow-lg [html.dark_&]:bg-neutral-900"
                 >
-                    <button type="button" role="menuitem" onClick={copy} className={itemClass}>
+                    <button type="button" onClick={copy} className={itemClass}>
                         Copy page as Markdown
                     </button>
-                    <a role="menuitem" href={`/${mdPath}`} target="_blank" rel="noreferrer" className={itemClass}>
+                    <a href={`/${mdPath}`} target="_blank" rel="noreferrer" className={itemClass}>
                         View as Markdown
                     </a>
-                    <a role="menuitem" href={`https://chatgpt.com/?q=${prompt}`} target="_blank" rel="noreferrer" className={itemClass}>
+                    <a href={`https://chatgpt.com/?q=${prompt}`} target="_blank" rel="noreferrer" className={itemClass}>
                         Open in ChatGPT
                     </a>
-                    <a role="menuitem" href={`https://claude.ai/new?q=${prompt}`} target="_blank" rel="noreferrer" className={itemClass}>
+                    <a href={`https://claude.ai/new?q=${prompt}`} target="_blank" rel="noreferrer" className={itemClass}>
                         Open in Claude
                     </a>
                 </div>
