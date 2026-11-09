@@ -1,15 +1,13 @@
 import nextra from 'nextra'
 import {existsSync, readFileSync} from 'node:fs'
+import {discoveryLinkHeader} from './site.config.mjs'
 
 // Written by scripts/generate-ai-files.mjs (runs before dev and build).
 const manifestUrl = new URL('./src/generated/ai-pages.json', import.meta.url)
 const manifest = existsSync(manifestUrl) ? JSON.parse(readFileSync(manifestUrl, 'utf8')) : {pages: []}
 const aiPages = manifest.pages
 
-const describedBy = [
-    ...['/llms.txt', '/llms-full.txt', '/ai.txt'].map((path) => `<${path}>; rel="describedby"; type="text/plain"`),
-    ...(manifest.openapi ? ['</openapi.json>; rel="service-desc"; type="application/json"'] : []),
-].join(', ')
+const describedBy = discoveryLinkHeader({openapi: manifest.openapi})
 
 const cors = {key: 'Access-Control-Allow-Origin', value: '*'}
 
@@ -74,6 +72,39 @@ const nextConfig = {
                     ],
                 }]
                 : []),
+            // Agent discovery files. Extension-less /.well-known/api-catalog needs an explicit Content-Type.
+            {
+                source: '/.well-known/api-catalog',
+                headers: [
+                    {key: 'Content-Type', value: 'application/linkset+json'},
+                    {key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=86400'},
+                    cors,
+                ],
+            },
+            {
+                source: '/.well-known/ai-catalog.json',
+                headers: [
+                    {key: 'Content-Type', value: 'application/json; charset=utf-8'},
+                    {key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=86400'},
+                    cors,
+                ],
+            },
+            {
+                source: '/.well-known/agent-skills/index.json',
+                headers: [
+                    {key: 'Content-Type', value: 'application/json; charset=utf-8'},
+                    {key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=86400'},
+                    cors,
+                ],
+            },
+            {
+                source: '/.well-known/agent-skills/:skill/SKILL.md',
+                headers: [
+                    {key: 'Content-Type', value: 'text/markdown; charset=utf-8'},
+                    {key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=86400'},
+                    cors,
+                ],
+            },
             {
                 source: '/:file(llms\\.txt|llms-full\\.txt|ai\\.txt)',
                 headers: [

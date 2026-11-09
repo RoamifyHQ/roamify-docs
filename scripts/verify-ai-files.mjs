@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Fails if any docs page is missing from the generated AI files. Run after `npm run generate:ai`.
+import {createHash} from 'node:crypto'
 import {existsSync, readdirSync, readFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
+import {footerMarkdownPages} from '../site.config.mjs'
 import {fileURLToPath} from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -28,6 +30,9 @@ const manifestRoutes = new Set(pages.map((p) => p.route))
 for (const route of sourceRoutes) {
     if (!manifestRoutes.has(route)) errors.push(`src/content/${route || 'index'}.mdx is not in the generated manifest`)
 }
+for (const route of footerMarkdownPages) {
+    if (!manifestRoutes.has(route)) errors.push(`footer links to ${route || 'index'}.md but no such page exists`)
+}
 for (const route of manifestRoutes) {
     if (!sourceRoutes.includes(route)) errors.push(`manifest lists ${route || '/'} but no .mdx source exists`)
 }
@@ -53,6 +58,25 @@ if (existsSync(openapiPath)) {
     }
     if (!llms.includes('/openapi.json')) errors.push('llms.txt does not link /openapi.json')
 }
+// /.well-known discovery files
+try {
+    const catalog = JSON.parse(read('public/.well-known/api-catalog'))
+    if (!Array.isArray(catalog.linkset) || !catalog.linkset.every((e) => e.anchor)) errors.push('api-catalog needs a linkset array with an anchor per entry')
+    const index = JSON.parse(read('public/.well-known/agent-skills/index.json'))
+    for (const skill of index.skills ?? []) {
+        const file = `public/${new URL(skill.url).pathname}`
+        if (!existsSync(join(ROOT, file))) errors.push(`agent skill file missing: ${file}`)
+        else if (skill.digest !== `sha256:${createHash('sha256').update(read(file)).digest('hex')}`) errors.push(`agent skill digest does not match ${file}`)
+    }
+    const ard = JSON.parse(read('public/.well-known/ai-catalog.json'))
+    if (!ard.entries?.length) errors.push('ai-catalog.json has no entries')
+    for (const entry of ard.entries ?? []) {
+        if (['url', 'data'].filter((k) => k in entry).length !== 1) errors.push(`ai-catalog entry ${entry.identifier} needs exactly one of url or data`)
+    }
+} catch (e) {
+    errors.push(`/.well-known files: ${e.message}`)
+}
+if (!/Content-Signal:/.test(robots)) errors.push('robots.txt has no Content-Signal')
 if (sitemap.includes('.md<')) errors.push('sitemap.xml lists a .md URL')
 if (!/Sitemap:/.test(robots) || /Disallow:\s*\//.test(robots)) errors.push('robots.txt must have a Sitemap line and must not disallow /')
 

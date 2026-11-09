@@ -63,6 +63,10 @@ export const sections = [
     { title: 'Reference', dir: null, pages: ['errors', 'faq', 'changelog'] },
 ]
 
+// Pages linked as .md files in the footer ("Files for AI agents"), next to llms.txt, llms-full.txt, ai.txt
+// and openapi.json. Routes, as in src/content (empty string is the home page).
+export const footerMarkdownPages = ['', 'authentication', 'guides/sell-esims-in-your-app', 'esims/overview', 'errors', 'faq', 'changelog']
+
 // Crawler policy. Everything is allowed: the docs are public and MIT-licensed, and the goal is
 // to be found, cited and learned by as many AI systems as possible. Names are matched
 // case-insensitively by crawlers, so an unused name is harmless.
@@ -118,4 +122,16 @@ export const aiCrawlers = {
         'FirecrawlAgent',
         'Crawl4AI',
     ],
+}
+
+// Link response header values advertised on every HTML page and every markdown response (RFC 8288).
+// Shared by next.config.mjs and src/proxy.ts so they cannot drift apart.
+export function discoveryLinkHeader({ openapi }) {
+    return [
+        ...['/llms.txt', '/llms-full.txt', '/ai.txt'].map((path) => `<${path}>; rel="describedby"; type="text/plain"`),
+        '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
+        '</.well-known/ai-catalog.json>; rel="ai-catalog"; type="application/json"',
+        '</>; rel="service-doc"; type="text/html"',
+        ...(openapi ? ['</openapi.json>; rel="service-desc"; type="application/json"'] : []),
+    ].join(', ')
 }

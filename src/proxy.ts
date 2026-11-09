@@ -1,5 +1,6 @@
 import {NextRequest, NextResponse} from 'next/server'
 import manifest from '@/generated/ai-pages.json'
+import {discoveryLinkHeader} from '../site.config.mjs'
 
 // Content negotiation for AI agents: GET /esims/orders/ with `Accept: text/markdown` returns the
 // markdown version of the page (the static file /esims/orders.md). Browsers, curl (`*/*`) and link
@@ -7,10 +8,7 @@ import manifest from '@/generated/ai-pages.json'
 
 const pages = new Map(manifest.pages.map((p) => [p.route, p]))
 
-const describedBy = [
-    ...['/llms.txt', '/llms-full.txt', '/ai.txt'].map((path) => `<${path}>; rel="describedby"; type="text/plain"`),
-    ...(manifest.openapi ? ['</openapi.json>; rel="service-desc"; type="application/json"'] : []),
-].join(', ')
+const describedBy = discoveryLinkHeader({openapi: manifest.openapi})
 
 type Range = {type: string; q: number}
 

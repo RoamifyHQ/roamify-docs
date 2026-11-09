@@ -112,9 +112,7 @@ export default async function Page(props: any) {
                 />
             )}
             {page && (
-                <div className="mt-4 flex justify-end">
-                    <CopyPageMenu mdPath={page.mdPath} mdUrl={page.mdUrl} title={page.title} />
-                </div>
+                <CopyPageMenu mdPath={page.mdPath} />
             )}
             <MDXContent {...props} params={params} />
         </Wrapper>

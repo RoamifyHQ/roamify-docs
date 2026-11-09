@@ -3,7 +3,9 @@ import {Banner, Head, Search} from 'nextra/components'
 import {getPageMap} from 'nextra/page-map'
 import React from "react";
 import '@/styles/globals.css'
-import {site} from '../../site.config.mjs'
+import {footerMarkdownPages, site} from '../../site.config.mjs'
+import manifest from '@/generated/ai-pages.json'
+import {WebMcpTools} from '@/components/WebMcpTools'
 
 export const metadata = {
     metadataBase: new URL('https://docs.getroamify.com'),
@@ -87,8 +89,33 @@ const navbar = <Navbar logo={<div style={{
                        projectLink={site.repo}
 />
 
+// Plain links to the machine-readable files: useful to people, and a discovery path for crawlers that
+// follow links but not headers.
+const aiFiles = [
+    {label: 'llms.txt', href: '/llms.txt'},
+    {label: 'llms-full.txt', href: '/llms-full.txt'},
+    {label: 'ai.txt', href: '/ai.txt'},
+    ...(manifest.openapi ? [{label: 'openapi.json', href: '/openapi.json'}] : []),
+    ...footerMarkdownPages.map((route) => ({
+        label: route === '' ? 'index.md' : `${route}.md`,
+        href: route === '' ? '/index.md' : `/${route}.md`,
+    })),
+]
+
 const footer = (
-    <Footer className="flex-col items-center md:items-start">
+    <Footer className="flex-col items-start gap-6">
+        <nav aria-label="Files for AI agents">
+            <h2 className="mb-3 text-sm font-semibold">Files for AI agents</h2>
+            <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                {aiFiles.map((file) => (
+                    <li key={file.href}>
+                        <a href={file.href} className="opacity-70 underline-offset-4 hover:underline hover:opacity-100">
+                            {file.label}
+                        </a>
+                    </li>
+                ))}
+            </ul>
+        </nav>
         <span>© {site.copyrightStartYear}-{new Date().getFullYear()} {' '}<a href={site.url} target="_blank">Roamify</a>.</span>
     </Footer>
 )
@@ -109,9 +136,10 @@ export default async function RootLayout({children}: { children: React.ReactNode
         >
         <Head
         >
-            {/* Your additional tags should be passed as `children` of `<Head>` element */}
+            <link rel="ai-catalog" type="application/json" href="/.well-known/ai-catalog.json"/>
         </Head>
         <body>
+        <WebMcpTools/>
         <Layout
             darkMode={true}
             banner={banner}
@@ -130,6 +158,7 @@ export default async function RootLayout({children}: { children: React.ReactNode
                 next: true,
             }}
             docsRepositoryBase={site.repo}
+            copyPageButton={false}
             footer={footer}
             toc={{
                 backToTop: 'Back to top',
