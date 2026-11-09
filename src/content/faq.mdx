@@ -1,0 +1,45 @@
+---
+description: "Answers to common questions about the Roamify API: base URLs, authentication, supported countries, webhook verification, refund requests and insurance eligibility."
+---
+
+# Frequently Asked Questions
+
+Short answers to the questions partners ask most often. Each answer links to the page with the full details.
+
+## Getting started
+
+### What is the Roamify API?
+Roamify API is a REST API that lets you buy eSIMs, manage eSIM lifecycle events, issue travel insurance policies, check your partner balance and work with exchange rates. Start with the [introduction](/).
+
+### How many countries does Roamify eSIM cover?
+Roamify eSIM covers 200+ countries. Call `GET /api/esim/countries` to list the countries you can query packages for. See [Countries](/esims/countries).
+
+### What are the Roamify API base URLs?
+The development base URL is `https://api-dev.getroamify.com` and the production base URL is `https://api.getroamify.com`. See [Authentication](/authentication).
+
+### How do I check whether the Roamify API is up?
+Send a `GET` request to `/api/health` on either environment. The response contains the status of the API. See [Health Check](/health).
+
+## Authentication
+
+### How do I authenticate with the Roamify API?
+Send your access token in the `Authorization` header as `Bearer <token>` on every authenticated request. You get the token, called an API Key in the Partner Portal, from the Roamify Partner Portal. See [Authentication](/authentication).
+
+### Do Roamify access tokens expire?
+No. An access token is long-lived and stays valid until you rotate it in the Partner Portal under API Keys. After rotation, the old token is invalidated immediately. See [Authentication](/authentication#token-rotation).
+
+## Webhooks
+
+### How do I verify that a webhook came from Roamify?
+Each webhook request includes a signature in the `X-Roamify-Signature` header. Compute an HMAC-SHA256 of the raw request body with your secret key and compare it to the header value. See [Webhook Verification](/webhooks/verification).
+
+### What must my webhook endpoint do?
+It must be reachable over HTTPS with a valid SSL certificate and answer `200 OK` within 3 seconds. If it does not, Roamify retries the webhook up to 3 times at increasing intervals. See [Webhook Verification](/webhooks/verification#pre-requisites).
+
+## Refunds and insurance
+
+### Does a refund request refund my order immediately?
+No. A refund request asks Roamify support to refund one eSIM of one of your orders. The refund happens only after support approves it, and submitting a request never moves money by itself or revokes the eSIM. See [Refunds](/esims/refunds).
+
+### Who can buy Roamify travel insurance?
+Insurance packages may only be sold to travellers who are citizens or residents of Saudi Arabia. See [Insurance Overview](/insurance/overview).

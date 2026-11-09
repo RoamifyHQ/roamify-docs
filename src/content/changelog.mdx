@@ -1,0 +1,41 @@
+---
+description: "Dated changelog of the Roamify API documentation: new modules, endpoints and webhook events, from the first eSIM docs to refunds, vouchers, insurance and the AI-readable docs."
+---
+
+# Changelog
+
+What changed in the Roamify API documentation, newest first. Dates are when the change was published to the docs. Each entry links to the page it affects.
+
+## November 2026
+- **AI-readable docs.** Every page is available as markdown by adding `.md` to its URL (for example `/esims/orders.md`) or by sending `Accept: text/markdown`. Pages have a "Copy page" menu. The docs publish [`/llms.txt`](https://docs.getroamify.com/llms.txt), [`/llms-full.txt`](https://docs.getroamify.com/llms-full.txt) and an [OpenAPI description](https://docs.getroamify.com/openapi.json). Added the [FAQ](/faq), [API Errors](/errors) and two [guides](/guides/sell-esims-in-your-app).
+- **2026-11-08: Refunds.** New [Refunds](/esims/refunds) page for creating, bulk-creating, getting, listing and cancelling refund requests, and a new [Refund webhook event](/webhooks/types/refund) (`refunded` and `rejected`).
+
+## September 2026
+- **2026-09-01: Vouchers.** New [Vouchers](/esims/vouchers) page: mint batches of redeemable voucher codes, list, get, get by code and revoke. Available to selected partners, enabled per API key.
+
+## July 2026
+- **2026-07-10: Insurance module.** New [Insurance](/insurance/overview) module with [countries](/insurance/countries), [packages](/insurance/packages), [orders](/insurance/orders) and [policies](/insurance/policies).
+
+## June 2026
+- **2026-06-09: Package pagination and top-up flow.** [eSIM packages](/esims/packages) are paginated with `page` and `pageSize`, and the country parameters are clarified. New [Top-up flow](/esims/topup-flow) page, and [Send SMS](/esims/esims#send-sms) to an eSIM was added to the eSIM management docs. Webhook and authentication pages were reworked.
+- **2026-06-09: Gift card API removed.** The gift card API documentation and its references were removed.
+
+## January 2026
+- **2026-01-07: eSIMs Link.** New [eSIMs Link](/esims/esims-link) page for generating shareable installation links.
+- **2026-01-09:** Added the Android quick install URL.
+
+## December 2025
+- **2025-12-03: Exchange rates.** New [Exchange Rates](/exchange-rates/overview) module with [supported currencies](/exchange-rates/get-currencies) and [exchange rates](/exchange-rates/get-exchange-rates).
+
+## August 2025
+- **2025-08-29: eSIM events.** New [eSIM Events](/esims/events) page for the lifecycle event history of an eSIM.
+
+## July 2025
+- **2025-07-08: Webhooks.** New [Webhooks](/webhooks/overview) module with [eSIM status](/webhooks/types/esim-status), [eSIM usage](/webhooks/types/esim-usage), [partner balance](/webhooks/types/partner-balance) and [affiliate order](/webhooks/types/affiliate-orders) events.
+- **2025-07-30: Webhook verification.** New [Webhook verification](/webhooks/verification) page for the `X-Roamify-Signature` header.
+
+## June 2025
+- **2025-06-18: Affiliate module.** New [Affiliate](/affiliate/overview) module with [affiliate links](/affiliate/affiliate-links).
+
+## November 2024
+- **2024-11-01: First version.** First published version of the Roamify API documentation.

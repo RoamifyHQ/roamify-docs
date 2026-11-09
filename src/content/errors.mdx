@@ -1,0 +1,111 @@
+---
+description: "Reference of Roamify API errors by HTTP status and module: authentication errors, refund error codes, voucher and insurance errors, with what each means and which ones to retry."
+---
+
+# API Errors
+
+This page collects the errors documented across the Roamify API in one place, grouped by HTTP status and module. Each module page has the full error table next to its endpoints. Use this page to find an error message you received and decide what to do next.
+
+## Table of Contents
+- [Reading an error](#reading-an-error)
+- [Authentication errors](#authentication-errors)
+- [Which errors to retry](#which-errors-to-retry)
+- [Refund errors](#refund-errors)
+- [Voucher errors](#voucher-errors)
+- [Insurance errors](#insurance-errors)
+
+## Reading an error
+Refund errors have the form `{ "message": "...", "status": "failed", "code": "..." }`, so you can branch on `code`. The voucher and insurance pages document the HTTP status and the `message` text for each error. Match on the status first and treat the message as human-readable text.
+
+## Authentication errors
+These apply to every endpoint. See [Authentication](/authentication#response-and-error-handling).
+
+| HTTP | Meaning | What to do |
+| --- | --- | --- |
+| `401` | Missing token, malformed `Authorization` header, or invalid or rotated token. | Send `Authorization: Bearer <token>` with the current token from the Partner Portal. A rotated token stops working immediately. |
+| `403` | The token is valid but does not have permission for the requested action. | Check that the feature is enabled for your API key. Contact support if it should be. |
+| `500` | Internal server error. | Retry with backoff, or contact support if it persists. |
+
+## Which errors to retry
+- **`400`, `404`, `422`** describe the request itself. Fix the request instead of retrying it unchanged.
+- **`500`** and **`503`** are temporary: retry with backoff. The refund `500` codes say "Try again later", and the voucher `503` says to retry shortly or contact support.
+- **`502`** on `POST /api/insurance/apply` says in its message whether to try again later or to verify the traveller details. Issuance is not idempotent, so check the policy first; see [Retries and idempotency](/guides/retries-and-idempotency#insurance-issuance-is-not-idempotent).
+- **`409`** means the state of a resource conflicts with the request. Read the message before retrying. In particular, issuing an insurance policy is not idempotent: do not blindly retry `POST /api/insurance/apply` after a `409`. See [Retries and idempotency](/guides/retries-and-idempotency).
+
+## Refund errors
+From [Refunds](/esims/refunds#errors).
+
+| HTTP | `code` | Meaning |
+| --- | --- | --- |
+| `400` | `INVALID_PARAMETER` | A parameter is missing or invalid. For example both or neither of `iccid` and `esimId`, more than 20 bulk entries, or an invalid `limit`. |
+| `400` | `REFUND_INVALID_REASON` | `reason` is not one of the supported reasons. |
+| `400` | `REFUND_NOTES_REQUIRED` | `reason` is `OTHER` without `notes` of at least 10 characters. |
+| `404` | `ESIM_NOT_FOUND` | No eSIM of your account has that `iccid` or `esimId`. |
+| `404` | `REFUND_REQUEST_NOT_FOUND` | No request matches the `refundId`, `esimId` or `iccid`. |
+| `409` | `REFUND_REQUEST_ALREADY_EXISTS` | The eSIM already has an open request. The body carries its `refundId`. |
+| `409` | `REFUND_INVALID_STATUS` | Only a `PENDING` request can be cancelled. |
+| `422` | `REFUND_NOT_ELIGIBLE` | The eSIM cannot be refunded. `reasons` lists why, for example `ESIM_ALREADY_REFUNDED`. |
+| `422` | `REFUND_PRODUCT_TYPE_NOT_SUPPORTED` | Only `esim` is supported. |
+| `500` | `REFUND_CREATE_FAILED`, `REFUND_GET_FAILED`, `REFUND_CANCEL_FAILED`, `REFUND_SERVICE_NOT_CONFIGURED` | A temporary failure. Try again later. |
+
+## Voucher errors
+From [Vouchers](/esims/vouchers). The voucher endpoints are enabled per API key for selected partners.
+
+| HTTP | Message | Endpoints |
+| --- | --- | --- |
+| `400` | "packageId" is required | Create vouchers |
+| `400` | "quantity" must be a number, must be greater than or equal to 1, or must be less than or equal to 10 | Create vouchers |
+| `400` | Invalid quantity, please provide a whole number of at least 1 | Create vouchers |
+| `400` | "status" must be one of [ACTIVE, REDEEMED, CANCELLED] | List vouchers |
+| `400` | "limit" must be greater than or equal to 1 | List vouchers |
+| `401` | Unauthorized, please make sure your have provided the correct api key | All voucher endpoints |
+| `403` | Voucher creation is not enabled for this API key, please contact support to have it enabled | All voucher endpoints |
+| `403` | This packageId is not allowed for voucher creation with this API key, please use one of the packages allowed for your account | Create vouchers |
+| `404` | Voucher not found, please make sure you have provided the correct voucher ID or code | Get, get by code, revoke |
+| `409` | Vouchers with the same referenceId already exist, please make sure you have provided a unique referenceId | Create vouchers |
+| `409` | Voucher has already been redeemed and can no longer be revoked | Revoke |
+| `409` | Only active vouchers can be revoked, this voucher is no longer active | Revoke |
+| `500` | Failed to create, get or revoke vouchers, please try again later | All voucher endpoints |
+| `503` | Vouchers cannot be issued at the moment, please retry shortly or contact support | Create vouchers |
+
+A voucher that belongs to another partner is reported as `404`, not `403`.
+
+## Insurance errors
+From [Insurance orders](/insurance/orders#errors), [policies](/insurance/policies#errors) and [packages](/insurance/packages#errors). Insurance is available to travellers who are citizens or residents of Saudi Arabia.
+
+### Orders
+| HTTP | Message |
+| --- | --- |
+| `400` | Only insurance packages can be ordered through this endpoint. Every packageId must start with 'insurance-'; use POST /esim/order for eSIM packages |
+| `400` | Invalid quantity, please make sure your have provided the correct quantity |
+| `400` | Exceed maximum total quantity of 5, please make sure your have provided the correct quantity and the quantity does not exceed the maximum allowed quantity 5 |
+| `400` | Missing required fields, please provide all required fields according to the documentation |
+| `404` | Order not found, please make sure your have provided the correct orderId or referenceId |
+| `409` | Order with the same referenceId already exists, please make sure your have provided a unique referenceId |
+| `409` | Insufficient partner balance, please recharge it first before placing order |
+
+An eSIM order ID returns `404` on the insurance order endpoint, even though the order exists.
+
+### Applying and reading policies
+| HTTP | Message |
+| --- | --- |
+| `400` | This insurance package requires idNumber, passportNumber, dateOfBirth or phoneNumber, please provide insurer.idNumber, insurer.passportNumber, insurer.dateOfBirth (DD/MM/YYYY) or mobile (international format without the leading '+'). Each message names the one field that the package requires and you left out |
+| `400` | Invalid traveller name, nationality, idNumber, passportNumber, dateOfBirth, mobile or email |
+| `400` | Invalid startDate or endDate. Use DD/MM/YYYY, and make sure endDate is after startDate |
+| `400` | Coverage cannot start today, please provide a startDate at least 1 day in the future |
+| `400` | The requested coverage window is longer than the purchased package allows, please shorten it or buy a longer package |
+| `400` | Insurance details failed validation, please make sure you have provided all the required traveller fields |
+| `404` | Insurance policy not found, please make sure you have provided the correct policyId |
+| `409` | This insurance policy has already been issued and cannot be applied again |
+| `409` | This insurance policy is currently being issued, please retry with GET /insurance/policy?policyId=id after some time |
+| `409` | A policy has already been issued for this reference, please contact support if you believe this is an error |
+| `502` | Failed to issue the insurance policy, please try again later or contact support |
+| `502` | The insurance provider rejected the request, please verify the traveller details and try again |
+
+A policy that belongs to another partner is reported as `404`, not `403`.
+
+### Packages
+| HTTP | Message |
+| --- | --- |
+| `404` | Insurance package not found, please make sure you have provided a valid packageId |
+| `500` | Failed to get insurance packages, please try again later |

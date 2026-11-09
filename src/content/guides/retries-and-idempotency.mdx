@@ -1,0 +1,38 @@
+---
+description: "How to retry Roamify API requests safely: which errors are temporary, how referenceId protects orders and voucher batches from duplicates, and why insurance issuance must not be retried blindly."
+---
+
+# Retries and idempotency
+
+Network calls fail. This guide explains what the Roamify docs say about retrying safely, so a timeout does not turn into a duplicate order. It only covers behavior stated in the reference pages.
+
+## Table of Contents
+- [Retry only temporary errors](#retry-only-temporary-errors)
+- [Use a referenceId](#use-a-referenceid)
+- [Insurance issuance is not idempotent](#insurance-issuance-is-not-idempotent)
+- [Refund requests](#refund-requests)
+- [Webhooks can repeat](#webhooks-can-repeat)
+
+## Retry only temporary errors
+`500` and `503` responses are temporary. Retry them with backoff, and contact support if they persist. `400`, `404` and `422` describe a problem with your request, so fix the request instead of repeating it. Read a `409` before you retry, because it means the resource is already in a state that conflicts with your request. The full list is in [API Errors](/errors).
+
+## Use a referenceId
+Orders accept an optional `referenceId` of your own, and you can fetch an order by `orderId` or `referenceId`. If a request times out, look the order up by your `referenceId` before you submit it again.
+
+- **eSIM orders** (`POST /api/esim/order`, `POST /api/esim/order/instant`, `POST /api/esim/order/topup`): `referenceId` is optional. Fetch with `GET /api/esim/order?referenceId=...`. See [Orders](/esims/orders). The instant order can take a while to fulfil, so set a timeout of at least 60 seconds and check by `referenceId` before you retry after a timeout.
+- **Insurance orders**: `referenceId` must be unique across your orders. Reusing one returns `409`, which makes it a safe guard against double submission. See [Insurance orders](/insurance/orders).
+- **Vouchers**: creating vouchers is not idempotent on its own. A retried request with no `referenceId` mints a whole second batch. Always send a `referenceId`: a repeat of a batch that already landed is rejected with `409`, and you can fetch the vouchers that were created with `GET /api/esim/vouchers?referenceId=...`. See [Vouchers](/esims/vouchers).
+
+## Insurance issuance is not idempotent
+`POST /api/insurance/apply` issues a policy. Applying to a policy that is already `ISSUED`, `ACTIVE` or `EXPIRED` returns `409`. Do not blindly retry it. Read the message:
+
+- If the policy is being issued, poll `GET /api/insurance/policy?policyId=...` until the policy document is ready.
+- If it has already been issued, it cannot be applied again.
+
+See [Insurance policies](/insurance/policies).
+
+## Refund requests
+An eSIM can have one open refund request at a time. A second request while one is `PENDING` or `PROCESSING` returns `409` with the `refundId` of the open request, so a retried request cannot create a duplicate. In a bulk request, a repeated `iccid` or `esimId` comes back as `DUPLICATE` and the first entry is kept. See [Refunds](/esims/refunds).
+
+## Webhooks can repeat
+Handle duplicate webhook deliveries. The refund event, for example, has a stable `event_id` that is the same every time the same event is delivered. See [Refund event](/webhooks/types/refund#handling-duplicates). Respond with `200 OK` within 3 seconds, or Roamify retries the webhook up to 3 times at increasing intervals ([verification](/webhooks/verification)).
